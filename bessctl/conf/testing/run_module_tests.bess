@@ -1,6 +1,8 @@
 import scapy.all as scapy
+import glob
 import socket
 import time
+import commands
 
 def aton(ip):
   return socket.inet_aton(ip)
@@ -16,11 +18,14 @@ def crash_test(module, num_input_ports, num_output_ports):
     module:i -> sink
 
   time.sleep(30)
-  print("Succeeded crash test for " + str(module))
 
-CRASH_TEST_INPUTS = []
 
-execfile("conf/testing/module_tests/acl.py")
+for file in glob.glob("conf/testing/module_tests/*.py"):
+  CRASH_TEST_INPUTS = []
 
-for test in CRASH_TEST_INPUTS:
-  crash_test(test[0], test[1], test[2])
+  execfile(file)
+
+  crash_testid = 1
+  for test in CRASH_TEST_INPUTS:
+    crash_test(test[0], test[1], test[2])
+    print(str(test[0]) + " crash test " + str(crash_testid) + ": PASS")
