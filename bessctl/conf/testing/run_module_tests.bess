@@ -1,0 +1,26 @@
+import scapy.all as scapy
+import socket
+import time
+
+def aton(ip):
+  return socket.inet_aton(ip)
+
+# All this does is subject a module to load and make sure it 
+# doesn't crash
+def crash_test(module, num_input_ports, num_output_ports):
+  for i in range(num_input_ports):
+    src = Source()
+    src -> i:module
+  for i in range(num_output_ports):
+    sink = Sink()
+    module:i -> sink
+
+  time.sleep(30)
+  print("Succeeded crash test for " + str(module))
+
+CRASH_TEST_INPUTS = []
+
+execfile("conf/testing/module_tests/acl.py")
+
+for test in CRASH_TEST_INPUTS:
+  crash_test(test[0], test[1], test[2])
