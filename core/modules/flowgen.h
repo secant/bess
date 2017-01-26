@@ -58,7 +58,7 @@ class FlowGen final : public Module {
 
     static const Commands cmds;
     pb_error_t Init(const bess::pb::FlowGenArg &arg);
-    pb_error_t CommandUpdate(const bess::pb::FlowGenArg &arg);
+    pb_cmd_response_t CommandUpdate(const bess::pb::FlowGenArg &arg);
 
     void DeInit() override;
 
