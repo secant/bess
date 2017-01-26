@@ -14,5 +14,5 @@ CRASH_TEST_INPUTS.append([fw2, 1, 1])
 
 fw3 = ACL(rules=[{'src_ip':'0.0.0.0/0', 'drop':False}])
 test_packet = gen_packet(scapy.TCP, '22.22.22.22', '22.22.22.22')
-OUTPUT_TEST_INPUTS.append(fw3, [{'input_port':0, 'input_packet':test_packet, 'output_port':0, 'output_packet':test_packet}])
+OUTPUT_TEST_INPUTS.append([fw3, [{'input_port':0, 'input_packet':test_packet, 'output_port':0, 'output_packet':test_packet}]])
 
