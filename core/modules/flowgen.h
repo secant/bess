@@ -12,10 +12,6 @@ typedef std::pair<uint64_t, struct flow *> Event;
 typedef std::priority_queue<Event, std::vector<Event>,
         std::function<bool(Event, Event)>> EventQueue;
 
-const Commands FlowGen::cmds = {
-  {"update", "FlowGenArg", MODULE_CMD_FUNC(&FlowGen::CommandUpdate), 0}
-};
-
 struct flow {
   uint32_t flow_id;
   int packets_left;
@@ -60,8 +56,9 @@ class FlowGen final : public Module {
       flow_gap_ns_(),
       pareto_() {}
 
+    static const Commands cmds;
     pb_error_t Init(const bess::pb::FlowGenArg &arg);
-    pb_error_t CommandUpdate(const bess:pb::FlowGenArg &arg);
+    pb_error_t CommandUpdate(const bess::pb::FlowGenArg &arg);
 
     void DeInit() override;
 
@@ -70,6 +67,7 @@ class FlowGen final : public Module {
     std::string GetDesc() const override;
 
   private:
+    void UpdateDerivedParameters();
     inline double NewFlowPkts();
     inline double MaxFlowPkts() const;
     inline uint64_t NextFlowArrival();

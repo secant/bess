@@ -14,8 +14,12 @@
 
 typedef std::pair<uint64_t, struct flow *> Event;
 typedef std::priority_queue<Event, std::vector<Event>,
-                            std::function<bool(Event, Event)>>
-    EventQueue;
+                            std::function<bool(Event, Event)>> EventQueue;
+
+const Commands FlowGen::cmds = {
+  {"update", "FlowGenArg", MODULE_CMD_FUNC(&FlowGen::CommandUpdate), 0}
+};
+
 
 //Priority queue must be a *min* heap -> next upcoming event first.
 bool EventLess(const Event &a, const Event &b) {
@@ -231,6 +235,65 @@ pb_error_t FlowGen::InitFlowPool() {
   return pb_errno(0);
 }
 
+void FlowGen::UpdateDerivedParameters() {
+  /* calculate derived variables */
+  pareto_.inversed_alpha = 1.0 / pareto_.alpha;
+
+  if (duration_ == DURATION_PARETO) {
+    MeasureParetoMean();
+  }
+
+  concurrent_flows_ = flow_rate_ * flow_duration_;
+  if (concurrent_flows_ > 0.0) {
+    flow_pps_ = total_pps_ / concurrent_flows_;
+  }
+
+  flow_pkts_ = flow_pps_ * flow_duration_;
+  if (flow_rate_ > 0.0) {
+    flow_gap_ns_ = 1e9 / flow_rate_;
+  }
+}
+
+pb_err_t FlowGen::CommandUpdate(const bess::pb::FlowGenArg &arg){
+  if(arg.template_() && arg.template().length > 0){
+    if (arg.template_().length() > MAX_TEMPLATE_SIZE) {
+      return pb_error(EINVAL, "'template' is too big");
+    }
+
+    template_size_ = arg.template_().length();
+
+    memset(templ_, 0, MAX_TEMPLATE_SIZE);
+    memcpy(templ_, arg.template_().c_str(), template_size_);
+  }
+
+  if (!(std::isnan(arg.pps()) || arg.pps() < 0.0)) {
+    total_pps_ = arg.pps();
+  }
+
+  if (!(std::isnan(arg.flow_rate()) || arg.flow_rate() < 0.0)) {
+    flow_rate_ = arg.flow_rate();
+  }
+
+  if !((std::isnan(arg.flow_duration()) || arg.flow_duration() < 0.0)) {
+    flow_duration_ = arg.flow_duration();
+  }
+
+  if (arg.arrival() == "uniform") {
+    arrival_ = ARRIVAL_UNIFORM;
+  } else if (arg.arrival() == "exponential") {
+    arrival_ = ARRIVAL_EXPONENTIAL;
+  }
+
+  if (arg.duration() == "uniform") {
+    duration_ = DURATION_UNIFORM;
+  } else if (arg.duration() == "pareto") {
+    duration_ = DURATION_PARETO;
+  }
+
+  UpdateDerivedParameters();
+  return pb_errno(0);
+}
+
 pb_error_t FlowGen::Init(const bess::pb::FlowGenArg &arg) {
   task_id_t tid;
   pb_error_t err;
@@ -261,22 +324,7 @@ pb_error_t FlowGen::Init(const bess::pb::FlowGenArg &arg) {
     return err;
   }
 
-  /* calculate derived variables */
-  pareto_.inversed_alpha = 1.0 / pareto_.alpha;
-
-  if (duration_ == DURATION_PARETO) {
-    MeasureParetoMean();
-  }
-
-  concurrent_flows_ = flow_rate_ * flow_duration_;
-  if (concurrent_flows_ > 0.0) {
-    flow_pps_ = total_pps_ / concurrent_flows_;
-  }
-
-  flow_pkts_ = flow_pps_ * flow_duration_;
-  if (flow_rate_ > 0.0) {
-    flow_gap_ns_ = 1e9 / flow_rate_;
-  }
+  UpdateDerivedParameters();
 
   /* initialize flow pool */
   err = InitFlowPool();
