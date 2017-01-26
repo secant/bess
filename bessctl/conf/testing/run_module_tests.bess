@@ -3,15 +3,19 @@ import sys
 import glob
 import socket
 import time
+import sugar
+from time import gmtime, strftime
 
 ## HANDY UTILS AND GLOBAL VARS ##
 SOCKET_PATH = '/tmp/bess_unix_'
+SCRIPT_STARTTIME = strftime("%Y-%m-%d-%H-%M-%S", gmtime())
 
 # Generate a UnixSocketPort and a Socket to talk to it
 def gen_socket_and_port(sockname):
     socket_port = UnixSocketPort(name=sockname, path='@' + SOCKET_PATH + sockname)
 
     s = socket.socket(socket.AF_UNIX, socket.SOCK_SEQPACKET)
+    s.settimeout(5) #five second timeout
     s.connect('\0' + SOCKET_PATH + sockname)
     return socket_port, s
 
@@ -23,6 +27,12 @@ def gen_packet(proto, src_ip, dst_ip):
     payload = 'helloworld'
     pkt = eth/ip/udp/payload
     return str(pkt)
+
+def pkt_str(pkt):
+    if(pkt == None):
+        return "None"
+    else:
+        return pkt.summary()
 
 # Convert an IP address to an integer
 def aton(ip):
@@ -58,10 +68,10 @@ for file in glob.glob("conf/testing/module_tests/*.py"):
     bess.reset_all()
     CRASH_TEST_INPUTS = []
     OUTPUT_TEST_INPUTS = []
-    CUSTOM_FUNCTIONS = []
+    CUSTOM_TEST_FUNCTIONS = []
 
     print("-- Running Module Tests for " + file + " --")
-    execfile(file)
+    exec(sugar.xform_file(file))
 
     crash_testid = 1
     for test in CRASH_TEST_INPUTS:
@@ -71,29 +81,59 @@ for file in glob.glob("conf/testing/module_tests/*.py"):
 
     output_testid = 1
     for test in OUTPUT_TEST_INPUTS:
-        output_testid += 1
-        sockname = str(output_testid) + "moduletest"
-        socket_port, socket = gen_socket_and_port(sockname)
-        inc = PortInc(port=sockname) 
-        out = PortOut(port=sockname)
-        inc -> test[0] -> out
+        input_ports = []
+        output_ports = []
+        sockets = []
+
+        for port_num in range(max(test[1],test[2])):
+            sockname = str(output_testid) + "moduletesting-" + SCRIPT_STARTTIME + str(port_num)
+            socket_port, mysocket = gen_socket_and_port(sockname)
+            input_ports.append(PortInc(port=sockname))
+            output_ports.append(PortOut(port=sockname))
+            sockets.append(mysocket)
+            if (port_num < test[1]):
+                input_ports[port_num] -> port_num:test[0]
+            if (port_num < test[2]):
+                test[0]:port_num -> output_ports[port_num]
+
         bess.resume_all()
 
-        for test_case in test[1]:
+        for test_case in test[3]:
             input_port = test_case["input_port"]
             output_port = test_case["output_port"]
             input_pkt = test_case["input_packet"]
             output_pkt = test_case["output_packet"]
-            socket.send(str(input_pkt))
-            return_pkt = scapy.Ether(socket.recv(2048))
-            if(return_pkt != scapy.Ether(output_pkt)):
+            if(input_pkt != None):
+                sockets[input_port].send(str(input_pkt))
+            try:
+                return_pkt = scapy.Ether(sockets[output_port].recv(2048))
+            except socket.timeout:
+                return_pkt = None
+            if(not ((return_pkt == None and output_pkt == None) or
+                    (return_pkt == scapy.Ether(output_pkt)))):
                 print("Test failed!\n")
-                print("Input packet: " + scapy.Ether(input_pkt).summary() + "\n")
-                print("Expected: " + scapy.Ether(output_pkt).summary() + "\n")
-                print("Received: " + return_pkt.summary() + "\n")
-                socket.close()
+                print("Input packet: " + pkt_str(input_pkt) + "\n")
+                print("Expected: " + pkt_str(output_pkt) + "\n")
+                print("Received: " + pkt_str(return_pkt) + "\n")
+                for sock in sockets:
+                    sock.close()
                 sys.exit(2)
             print("   " + str(test[0]) + " output test " + str(output_testid) + ": PASS")
         #tests passed!
-        socket.close()
-    print
+        output_testid += 1
+        for sock in sockets:
+            sock.close()
+        bess.pause_all()
+
+    for test in CUSTOM_TEST_FUNCTIONS:
+        result = test()
+        if(result != 0):
+            print("Test failed!\n")
+            print("Return value: " + str(result) + "\n")
+            sys.exit(result)
+        print("   " + str(test) + " custom test: PASS")
+    #All done!
+    print "\n\n"
+
+bess.reset_all()
+return 0
