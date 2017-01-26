@@ -2,17 +2,48 @@ import scapy.all as scapy
 import glob
 import socket
 import time
-import commands
 
+## HANDY UTILS AND GLOBAL VARS ##
+SOCKET_PATH = '/tmp/bess_unix_'
+
+# Generate a UnixSocketPort and a Socket to talk to it
+def gen_socket_and_port(sockname):
+  socket_port = UnixSocketPort(name=sockname, path='@' + SOCKET_PATH + sockname)
+
+  s = socket.socket(socket.AF_UNIX, socket.SOCK_SEQPACKET)
+  s.connect('\0' + SOCKET_PATH + sockname)
+  return socket_port, s
+
+# Craft a packet with the specified IP addresses
+def gen_packet(proto, src_ip, dst_ip):
+  eth = scapy.Ether(src='02:1e:67:9f:4d:ae', dst='06:16:3e:1b:72:32')
+  ip = scapy.IP(src=src_ip, dst=dst_ip)
+  udp = proto(sport=10001, dport=10002)
+  payload = 'helloworld'
+  pkt = eth/ip/udp/payload
+  return str(pkt)
+
+# Convert an IP address to an integer
 def aton(ip):
   return socket.inet_aton(ip)
 
-# All this does is subject a module to load and make sure it 
+test_packets = [
+  gen_packet(scapy.UDP, '172.16.100.1', '10.0.0.1'),
+  gen_packet(scapy.UDP, '172.12.55.99', '12.34.56.78'),
+  gen_packet(scapy.UDP, '172.12.55.99', '10.0.0.1'),
+  gen_packet(scapy.UDP, '172.16.100.1', '12.34.56.78'),
+  gen_packet(scapy.TCP, '172.12.55.99', '12.34.56.78'),
+  gen_packet(scapy.UDP, '192.168.1.123', '12.34.56.78')
+  ]
+
+## TEST FUNCTIONS ##
+
+# All this does is subject a module to load and make sure it
 # doesn't crash
 def crash_test(module, num_input_ports, num_output_ports):
   for i in range(num_input_ports):
     src = Source()
-    src -> i:module
+    src -> Rewrite(templates=test_packets) -> i:module
   for i in range(num_output_ports):
     sink = Sink()
     module:i -> sink
@@ -20,12 +51,36 @@ def crash_test(module, num_input_ports, num_output_ports):
   time.sleep(30)
 
 
+## RUN TEST LOOP ##
+
 for file in glob.glob("conf/testing/module_tests/*.py"):
   CRASH_TEST_INPUTS = []
+  OUTPUT_TEST_INPUTS = []
+  CUSTOM_FUNCTIONS = []
 
+  print("-- Running Module Tests for " + file + " --")
   execfile(file)
 
   crash_testid = 1
   for test in CRASH_TEST_INPUTS:
     crash_test(test[0], test[1], test[2])
-    print(str(test[0]) + " crash test " + str(crash_testid) + ": PASS")
+    print("   " + str(test[0]) + " crash test " + str(crash_testid) + ": PASS")
+    crash_testid += 1
+
+  output_testid = 1
+  for test in OUTPUT_TEST_INPUTS:
+    output_testid += 1
+    socket_port, socket = gen_socket_and_port(str(output_testid) + str(test[0]))
+    PortInc(socket_port) -> test[0] -> PortOut(socket_port)
+
+    for test_case in test[1]:
+      input_port = test_case["input_port"]
+      output_port = test_case["output_port"]
+      input_pkt = test_case["input_pkt"]
+      output_pkt = test_case["output_pkt"]
+      socket.send(str(input_pkt)
+      return_pkt = scapy.Ether(socket.recv(2048))
+      assert return_pkt == output_pkt
+
+  print
+  bess.reset_all()
