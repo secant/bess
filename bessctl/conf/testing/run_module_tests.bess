@@ -136,4 +136,4 @@ for file in glob.glob("conf/testing/module_tests/*.py"):
     print "\n\n"
 
 bess.reset_all()
-return 0
+sys.exit(0)
