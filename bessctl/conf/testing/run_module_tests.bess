@@ -20,6 +20,7 @@ def gen_socket_and_port(sockname):
     return socket_port, s
 
 # Craft a packet with the specified IP addresses
+# All the other fields -- Ether, ports -- are dummy values.
 def gen_packet(proto, src_ip, dst_ip):
     eth = scapy.Ether(src='02:1e:67:9f:4d:ae', dst='06:16:3e:1b:72:32')
     ip = scapy.IP(src=src_ip, dst=dst_ip)
@@ -38,7 +39,8 @@ def pkt_str(pkt):
 def aton(ip):
     return socket.inet_aton(ip)
 
-test_packets = [
+#These are just for the crash test
+crash_test_packets = [
   gen_packet(scapy.UDP, '172.16.100.1', '10.0.0.1'),
   gen_packet(scapy.UDP, '172.12.55.99', '12.34.56.78'),
   gen_packet(scapy.UDP, '172.12.55.99', '10.0.0.1'),
@@ -54,7 +56,7 @@ test_packets = [
 def crash_test(module, num_input_ports, num_output_ports):
     for i in range(num_input_ports):
         src = Source()
-        src -> Rewrite(templates=test_packets) -> i:module
+        src -> Rewrite(templates=crash_test_packets) -> i:module
     for i in range(num_output_ports):
         sink = Sink()
         module:i -> sink
@@ -64,14 +66,16 @@ def crash_test(module, num_input_ports, num_output_ports):
 
 ## RUN TEST LOOP ##
 
-for file in glob.glob("conf/testing/module_tests/*.py"):
+for file in glob.glob(sys.argv[0] + "conf/testing/module_tests/*.py"):
     bess.reset_all()
     CRASH_TEST_INPUTS = []
     OUTPUT_TEST_INPUTS = []
     CUSTOM_TEST_FUNCTIONS = []
 
     print("-- Running Module Tests for " + file + " --")
-    exec(sugar.xform_file(file))
+    while True: #wrap in this scoping to make sure variables don't leak into this script
+        exec(sugar.xform_file(file))
+        break
 
     crash_testid = 1
     for test in CRASH_TEST_INPUTS:
