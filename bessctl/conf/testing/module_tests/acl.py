@@ -2,6 +2,8 @@ import sugar
 from module import *
 from port import *
 
+print("Loded acl.py")
+
 ## CRASH TESTS ##
 # Create a module and specify how many input and output ports it has.
 # Test will generate a bunch of UDP packets and feed them in on all of the input ports,
