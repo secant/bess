@@ -107,6 +107,12 @@ class FlowGen final : public Module {
   double flow_pkts_;        /* flow_pps * flow_duration */
   double flow_gap_ns_;      /* == 10^9 / flow_rate */
 
+  /* ranges over which to vary ips and ports */
+  uint32_t ip_src_range_;
+  uint32_t ip_dst_range_;
+  uint16_t port_src_range_;
+  uint16_t port_dst_range_;
+
   struct {
     double alpha;
     double inversed_alpha; /* 1.0 / alpha */

@@ -206,6 +206,23 @@ pb_error_t FlowGen::ProcessArguments(const bess::pb::FlowGenArg &arg) {
     quick_rampup_ = 1;
   }
 
+  ip_src_range_ = arg.ip_src_range();
+  ip_dst_range_ = arg.ip_dst_range();
+  port_src_range_ = (uint16_t) arg.port_src_range();
+  port_dst_range_ = (uint16_t) arg.port_dst_range();
+
+  if(ip_src_range_ == 0 &&
+      ip_dst_range_ == 0 &&
+      port_src_range_ == 0 &&
+      port_dst_range_ == 0) {
+    /*randomize ports anyway*/
+    port_dst_range_ = 20000;
+    port_src_range_ = 20000;
+  }
+
+
+
+
   return pb_errno(0);
 }
 
@@ -327,12 +344,37 @@ bess::Packet *FlowGen::FillPacket(struct flow *f) {
   if (f->packets_left <= 1)
     tcp_flags |= 0x01; /* FIN */
 
-  *(reinterpret_cast<uint32_t *>(p + 14 + /* IP dst */ 16)) = f->flow_id;
+  if(ip_src_range_ != 0){
+    uint32_t* ip_src = reinterpret_cast<uint32_t *>(p + 14 + /* IP src */ 12);
+    *ip_src = htonl(ntohl(*ip_src) + f->flow_id % ip_src_range_);
+  }
+
+  if(ip_dst_range_ != 0){
+    uint32_t* ip_dst = reinterpret_cast<uint32_t *>(p + 14 + /* IP dst */ 16);
+    *ip_dst = htonl(ntohl(*ip_dst) + (f->flow_id % ip_dst_range_));
+  }
+
+  if(port_src_range_ != 0){
+    uint16_t* tcp_src = reinterpret_cast<uint16_t *>(p + 34 /* TCP src */);
+    *tcp_src = htons(ntohs(*tcp_src) + (f->flow_id % port_src_range_));
+  }
+
+  if(port_dst_range_ != 0){
+    uint16_t* tcp_dst = reinterpret_cast<uint16_t *>(p + 34 + 2 /* TCP dst */);
+    *tcp_dst = htons(ntohs(*tcp_dst) + (f->flow_id % port_dst_range_));
+  }
+
   *(reinterpret_cast<uint8_t *>(p + 14 + /* IP */ 20 + /* TCP flags */ 13)) =
       tcp_flags;
   *(reinterpret_cast<uint32_t *>(p + 14 + /* IP */ 20  + /* Seq No*/ 4)) = htonl(f->next_seq_no);
 
   f->next_seq_no += f->first ? 1 : size - (14 + 20 + 20); /* eth + ip + tcp*/
+
+  if(f->first || f->packets_left <= 1){ //syn or fin
+    pkt->set_total_len(60); /*eth + ip + tcp*/
+    pkt->set_data_len(60); /*eth + ip + tcp*/
+    *(reinterpret_cast<uint16_t *>(p + 14 + 2 /* IP Len */)) = (uint16_t) htons(40);
+  }
 
   return pkt;
 }
