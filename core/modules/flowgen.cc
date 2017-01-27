@@ -257,26 +257,29 @@ void FlowGen::UpdateDerivedParameters() {
 pb_cmd_response_t FlowGen::CommandUpdate(const bess::pb::FlowGenArg &arg) {
   pb_cmd_response_t response;
   if(arg.template_().length() > 0){
+    LOG(INFO) << "Updating FlowGen template";
     if (arg.template_().length() > MAX_TEMPLATE_SIZE) {
         set_cmd_response_error(&response, pb_error(EINVAL, "'template' is too big"));
         return response;
     }
-
     template_size_ = arg.template_().length();
 
     memset(templ_, 0, MAX_TEMPLATE_SIZE);
     memcpy(templ_, arg.template_().c_str(), template_size_);
   }
 
-  if (!(std::isnan(arg.pps()) || arg.pps() < 0.0)) {
+  if (!(std::isnan(arg.pps()) || arg.pps() <= 0.0)) {
+    LOG(INFO) << "Updating FlowGen pps" << arg.pps();
     total_pps_ = arg.pps();
   }
 
-  if (!(std::isnan(arg.flow_rate()) || arg.flow_rate() < 0.0)) {
+  if (!(std::isnan(arg.flow_rate()) || arg.flow_rate() <= 0.0)) {
+    LOG(INFO) << "Updating FlowGen flow rate" << arg.flow_rate();
     flow_rate_ = arg.flow_rate();
   }
 
-  if (!(std::isnan(arg.flow_duration()) || arg.flow_duration() < 0.0)) {
+  if (!(std::isnan(arg.flow_duration()) || arg.flow_duration() <= 0.0)) {
+    LOG(INFO) << "Updating FlowGen flow duration" << arg.flow_duration();
     flow_duration_ = arg.flow_duration();
   }
 
