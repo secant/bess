@@ -69,12 +69,10 @@ crash_test_packets = [
 def crash_test(module, num_input_ports, num_output_ports):
     for i in range(num_input_ports):
         src = Source()
-        src -> Rewrite(templates=crash_test_packets) -> i:
-            module
+        src -> Rewrite(templates=crash_test_packets) -> i:module
     for i in range(num_output_ports):
         sink = Sink()
-        module:
-            i -> sink
+        module:i -> sink
 
     time.sleep(5)
 
@@ -116,11 +114,9 @@ for file in glob.glob(sys.argv[0] + "conf/testing/module_tests/*.py"):
             output_ports.append(PortOut(port=sockname))
             sockets.append(mysocket)
             if (port_num < test[1]):
-                input_ports[port_num] -> port_num:
-                    test[0]
+                input_ports[port_num] -> port_num:test[0]
             if (port_num < test[2]):
-                test[0]:
-                    port_num -> output_ports[port_num]
+                test[0]:port_num -> output_ports[port_num]
 
         bess.resume_all()
 

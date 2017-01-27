@@ -43,16 +43,24 @@ fw3 = ACL(rules=[{'src_ip': '0.0.0.0/0', 'drop': False}])  # module to test
 test_packet = gen_packet(scapy.TCP, '22.22.22.22', '22.22.22.22')
 OUTPUT_TEST_INPUTS.append([fw3,  # test this module
                            1, 1,  # it has one input port and one output port
-                           [{'input_port': 0, 'input_packet': test_packet,  # send test_packet in on input port 0
-                             'output_port': 0, 'output_packet': test_packet}]])  # I expect test_packet to come out on output port 0
+                           [{'input_port': 0,
+                               'input_packet': test_packet,  # send test_packet in on input port 0
+                                'output_port': 0,
+                                'output_packet': test_packet}]])  # I expect test_packet to come out on output port 0
 
 # You can also run two tests back to back.
 fw4 = ACL(rules=[{'src_ip': '96.0.0.0/8', 'drop': False}])
 test_packet2 = gen_packet(scapy.TCP, '22.22.22.22', '22.22.22.22')
 test_packet3 = gen_packet(scapy.TCP, '96.22.22.22', '22.22.22.22')
 OUTPUT_TEST_INPUTS.append([fw4, 1, 1,  # test this module, it has one input port and one output port
-                           [{'input_port': 0, 'input_packet': test_packet2, 'output_port': 0, 'output_packet': None},  # here I expect a packet to be dropped
-                            {'input_port': 0, 'input_packet': test_packet3, 'output_port': 0, 'output_packet': test_packet3}]])  # And here I expect it to come through
+                           [{'input_port': 0,
+                               'input_packet': test_packet2,
+                               'output_port': 0,
+                               'output_packet': None},  # here I expect a packet to be dropped
+                            {'input_port': 0,
+                                'input_packet': test_packet3,
+                                'output_port': 0,
+                                'output_packet': test_packet3}]])  # And here I expect it to come through
 
 ## CUSTOM TESTS ##
 # Some tests you might want to add could be more complicated than just checking inputs and ouputs.
