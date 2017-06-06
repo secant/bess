@@ -51,6 +51,11 @@ CommandResponse Source::CommandSetPktSize(
 }
 
 struct task_result Source::RunTask(void *) {
+  if (overload_ > 0) {
+    LOG(INFO) << "oload: " << overload_;
+    return {0, 0};
+  }
+
   bess::PacketBatch batch;
 
   const int pkt_overhead = 24;

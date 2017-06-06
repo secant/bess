@@ -27,13 +27,25 @@ class Queue final : public Module {
 
   CheckConstraintResult CheckModuleConstraints() const override;
 
+  bool is_task() override { return true; } // Queue overrides RunTask.
+
+ protected:
+  struct llring *queue_;
+
  private:
   int Resize(int slots);
   CommandResponse SetSize(uint64_t size);
 
-  struct llring *queue_;
   bool prefetch_;
+  bool backpressure_;
   int burst_;
+  uint64_t size_;
+  uint64_t high_water_;
+  uint64_t low_water_;
+  const double kHighWaterRatio = 0.90;
+  const double kLowWaterRatio = 0.15;
+  bool underload_;
+  bool overload_;
 };
 
 #endif  // BESS_MODULES_QUEUE_H_

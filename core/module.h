@@ -1,6 +1,7 @@
 #ifndef BESS_MODULE_H_
 #define BESS_MODULE_H_
 
+#include <atomic>
 #include <map>
 #include <string>
 #include <unordered_set>
@@ -17,6 +18,14 @@ using bess::gate_idx_t;
 
 #define MAX_NUMA_NODE 16
 #define UNCONSTRAINED_SOCKET ((0x1ull << MAX_NUMA_NODE) - 1)
+
+class Node {
+ public:
+  Node(Module *module) : module_(module), children_(), parents_() {}
+  Module *module_;
+  std::unordered_set<std::string> children_;
+  std::unordered_set<Module *> parents_;
+};
 
 struct task_result {
   uint64_t packets;
@@ -137,7 +146,24 @@ class ModuleBuilder {
 
   CommandResponse RunInit(Module *m, const google::protobuf::Any &arg) const;
 
+  static int AddEdge(const std::string &from, const std::string &to);
+
+  static std::unordered_set<Module *> *Parents(const std::string &node) {
+    auto it = task_graph_.find(node);
+    if (it == task_graph_.end()) {
+      return nullptr;
+    }
+    return &(it->second.parents_);
+  }
+
  private:
+  static int UpdateTCGraph();
+  static int FindNextTC(const std::string &node, const std::string &parent,
+                        std::unordered_set<std::string> &visited);
+
+  static std::map<std::string, Node> task_graph_;
+  static std::map<std::string, Node> module_graph_;
+
   const std::function<Module *()> module_generator_;
 
   static std::map<std::string, Module *> all_modules_;
@@ -178,6 +204,7 @@ class Module {
         ogates_(),
         active_workers_(Worker::kMaxWorkers, false),
         visited_tasks_(),
+        overload_(0),
         node_constraints_(UNCONSTRAINED_SOCKET),
         min_allowed_workers_(1),
         max_allowed_workers_(1),
@@ -318,6 +345,13 @@ class Module {
 
   virtual CheckConstraintResult CheckModuleConstraints() const;
 
+  virtual bool is_task() { return false; };  // Whether the module has a task.
+
+  int overload() { return overload_; };  // For testing.
+
+  void SignalOverload();
+  void SignalUnderload();
+
  private:
   void DestroyAllTasks();
   void DeregisterAllAttributes();
@@ -349,6 +383,8 @@ class Module {
   std::vector<const ModuleTask *> visited_tasks_;
 
  protected:
+  std::atomic<int> overload_;
+
   // TODO[apanda]: Move to some constraint structure?
   // Placement constraints for this module. We use this to update the task based
   // on all upstream tasks.

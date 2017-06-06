@@ -479,6 +479,9 @@ void FlowGen::GeneratePackets(bess::PacketBatch *batch) {
 }
 
 struct task_result FlowGen::RunTask(void *) {
+  if (overload_ > 0) {
+    return {0, 0};
+  }
   bess::PacketBatch batch;
   struct task_result ret;
 
